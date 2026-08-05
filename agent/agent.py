@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
@@ -11,24 +12,16 @@ from deepagents.backends.context_hub import ContextHubBackend
 from agent.tools import TOOLS
 from context import CONTEXT_HUB_REPO, get_prompt
 from utils.streaming import iter_text
-from utils.models import model
+from utils.models import MODEL_CONFIG, model
 
 # AGENTS.md is the agent's system prompt — pulled fresh from LangSmith
 # Context Hub at module import.
 # Seed source: utils/context_hub.py (`_SEED_AGENTS_MD`), pushed to Context Hub by
 # `scripts/setup.py` (`push_agents_md()`). A prompt fix can be applied BOTH as a
 # PR to that seed AND to the live Context Hub.
-SYSTEM_PROMPT = get_prompt()
-
-# Override with CHAT_LANGCHAIN_LITE_MODEL env var — used by setup.py to seed
-# baseline experiments against a more expensive model (Sonnet) for the
-# demo's cost/latency comparison.
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
-
-
-def _model_id() -> str:
-    return os.getenv("CHAT_LANGCHAIN_LITE_MODEL") or _DEFAULT_MODEL
-
+# PROMPT_COMMIT goes on every run's metadata: AGENTS.md is edited in the
+# Context Hub UI, so revision_id (code) doesn't track which prompt was in effect.
+SYSTEM_PROMPT, PROMPT_COMMIT = get_prompt()
 
 # The Context Hub-backed filesystem holds the agent's OWN context (AGENTS.md,
 # playbooks) — it is a read-only reference, NOT a user-delivery channel.
@@ -54,9 +47,17 @@ def build_agent():
 
 
 def _config(thread_id: str | None = None) -> RunnableConfig:
-    metadata = {"demo": "true", "demo_type": "chat-lc-lite", "model": _model_id()}
-    if thread_id:
-        metadata["thread_id"] = thread_id
+    metadata = {
+        "demo": "true",
+        "demo_type": "chat-lc-lite",
+        # Read from the same dict that builds the model handed to create_agent(),
+        # so the label can't drift from the model actually invoked.
+        "model": MODEL_CONFIG["model"],
+        "environment": os.getenv("CHAT_LANGCHAIN_LITE_ENV", "development"),
+        "prompt_commit": PROMPT_COMMIT,
+        # Always set, so the Threads view groups turns instead of dropping them.
+        "thread_id": thread_id or str(uuid.uuid4()),
+    }
     return RunnableConfig(
         run_name="chat-lc-lite-demo",
         metadata=metadata,
