@@ -112,6 +112,67 @@ self-hosted LangSmith docs for a worked example.""",
 
 For online evaluation, register a run rule in the LangSmith Evaluators UI.
 Every new trace in the project will be scored automatically.""",
+
+    "persistence": """The Postgres checkpointer ships in its own distribution and is built on
+psycopg 3 — NOT psycopg2:
+
+```bash
+uv add langgraph-checkpoint-postgres
+```
+
+The checkpoint tables are not created implicitly. Call `.setup()` once during
+deployment, then compile the graph with the checkpointer:
+
+```python
+import os
+from langgraph.checkpoint.postgres import PostgresSaver
+
+# Run once during deployment (not on every application start):
+#   PostgresSaver.from_conn_string(os.environ["DATABASE_URL"]).setup()
+
+with PostgresSaver.from_conn_string(os.environ["DATABASE_URL"]) as checkpointer:
+    graph = builder.compile(checkpointer=checkpointer)
+```
+
+Every invocation needs a thread_id:
+```python
+graph.invoke({"messages": [...]}, {"configurable": {"thread_id": "conversation-1"}})
+```
+
+Use `InMemorySaver` (from `langgraph.checkpoint.memory`) for tests only. Do not
+query checkpoint tables by hand-guessed column names — read the schema the
+checkpointer created.""",
+
+    "middleware": """Middleware is a first-class LangChain abstraction — do not hand-roll wrapper
+callables. Import from `langchain.agents.middleware`:
+
+```python
+from langchain.agents import create_agent
+from langchain.agents.middleware import HumanInTheLoopMiddleware, wrap_tool_call
+from langgraph.checkpoint.memory import InMemorySaver
+
+agent = create_agent(
+    model="anthropic:claude-sonnet-4-5",
+    tools=[send_email],
+    checkpointer=InMemorySaver(),  # required for human-in-the-loop
+    middleware=[
+        HumanInTheLoopMiddleware(
+            interrupt_on={"send_email": {"allowed_decisions": ["approve", "edit", "reject"]}}
+        )
+    ],
+)
+```
+
+Resume after a human decision with `Command` from `langgraph.types`:
+```python
+from langgraph.types import Command
+
+agent.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config=config)
+```
+
+For custom hooks (logging, retries, guardrails), subclass `AgentMiddleware` or
+use the `@wrap_tool_call` decorator — both live in
+`langchain.agents.middleware`.""",
 }
 
 # Best practices the agent can recommend without caveat.
@@ -157,7 +218,7 @@ def lookup_concept(concept_name: str) -> str:
 
 @tool
 def get_setup_guide(topic: str) -> str:
-    """Get a setup or how-to guide for a LangChain ecosystem topic. Topics: installation, environment, deployment, evaluation."""
+    """Get a setup or how-to guide for a LangChain ecosystem topic, including verified code snippets. Topics: installation, environment, deployment, evaluation, persistence, middleware."""
     key = topic.lower().strip()
     for db_key, content in SETUP_GUIDES_DB.items():
         if key in db_key or db_key in key:
