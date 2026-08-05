@@ -247,7 +247,7 @@ This does five things:
 2. **Deletes CI/Engine experiments** — keeps the `baseline-*` seed experiments from `setup.py` (the Haiku-vs-Sonnet "before" reference); CI/CD regenerates before/after experiments on every PR
 3. **Removes Engine-added online evaluators** — uses saved run rule IDs from `.demo_state.json` to delete only evaluators Engine added, leaving the 5 from `setup.py` in place
 4. **Re-seeds Context Hub to the buggy baseline** — re-pushes the seed `AGENTS.md` and demo skills, restoring the buggy prompt if it was fixed in the Context Hub UI during the demo (a code/dataset reset can't touch Context Hub)
-5. **Resets main to the `baseline` tag** — force-resets to remove Engine's merged PR, restoring the buggy agent state
+5. **Resets main to the `baseline-<your-name>` tag** — force-resets to remove Engine's merged PR, restoring the buggy agent state. The tag name is derived from `DEMO_PRESENTER`, so create it once on your fork with `git tag -a baseline-<your-name> -m "..." && git push origin baseline-<your-name>` before the first cleanup
 
 After cleanup, the demo is ready to run again — no need to re-run `setup.py`.
 

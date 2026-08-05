@@ -6,7 +6,8 @@ Resets the demo to a clean state so it can be run again without re-running setup
   3. Removes Engine-added online evaluators (keeps the 5 registered by setup.py)
   4. Re-seeds Context Hub (AGENTS.md + demo skills) to the buggy baseline,
      restoring the prompt if it was fixed in the Context Hub UI during the demo
-  5. Force-resets main back to the 'baseline' tag (removes Engine's merged PR)
+  5. Force-resets main back to the 'baseline-<presenter>' tag (removes Engine's
+     merged PR)
 
 Optional: --full also deletes the LangSmith project entirely (clears all
 traces and Engine's per-project issue state). After a full reset, re-run
@@ -31,6 +32,11 @@ load_dotenv(override=True)
 
 from evals.dataset import DATASET_NAME, TOOL_ADHERENCE_DATASET_NAME, DEMO_PRESENTER
 PROJECT_NAME = os.getenv("LANGSMITH_PROJECT", "chat-lc-lite")
+
+# Git tag pinning the buggy commit main is reset to between demos. Scoped per
+# presenter so each fork pins its own commit (and so the name doesn't collide
+# with a plain `baseline` tag already used earlier in this repo's history).
+BASELINE_TAG = f"baseline-{DEMO_PRESENTER}"
 
 
 # ── 1. Reset dataset ───────────────────────────────────────────────────────────
@@ -264,15 +270,15 @@ def delete_project() -> None:
 # ── 4. Reset repo main to the baseline tag ────────────────────────────────────
 
 def reset_main_to_baseline() -> None:
-    """Force-reset the repo's main branch to the `baseline` tag.
+    """Force-reset the repo's main branch to the `BASELINE_TAG` tag.
 
-    The `baseline` tag is pinned to the initial buggy commit when the repo is
-    created. After Engine opens (and you merge) a PR, this resets main to that
-    pinned commit so the demo can be re-run from scratch. Unlike the previous
+    The tag is pinned to the initial buggy commit when the repo is created.
+    After Engine opens (and you merge) a PR, this resets main to that pinned
+    commit so the demo can be re-run from scratch. Unlike the previous
     fork-vs-upstream design, the tag lives in the same repo — no external
     upstream needed.
     """
-    print(f"\n[4/4] Resetting main branch to the 'baseline' tag...")
+    print(f"\n[4/4] Resetting main branch to the '{BASELINE_TAG}' tag...")
 
     # Get the repo from origin URL
     result = subprocess.run(
@@ -294,11 +300,11 @@ def reset_main_to_baseline() -> None:
 
     # Get the baseline tag's commit SHA from GitHub
     result = subprocess.run(
-        ["gh", "api", f"repos/{fork_repo}/git/refs/tags/baseline", "--jq", ".object.sha"],
+        ["gh", "api", f"repos/{fork_repo}/git/refs/tags/{BASELINE_TAG}", "--jq", ".object.sha"],
         capture_output=True, text=True,
     )
     if result.returncode != 0:
-        print(f"  Warning: 'baseline' tag not found on '{fork_repo}' ({result.stderr.strip()}). Skipping.")
+        print(f"  Warning: '{BASELINE_TAG}' tag not found on '{fork_repo}' ({result.stderr.strip()}). Skipping.")
         return
     baseline_sha = result.stdout.strip()
 
@@ -320,7 +326,7 @@ def reset_main_to_baseline() -> None:
         capture_output=True, text=True,
     )
     if result.returncode == 0:
-        print(f"  Reset '{fork_repo}' main to baseline ({baseline_sha[:8]}).")
+        print(f"  Reset '{fork_repo}' main to '{BASELINE_TAG}' ({baseline_sha[:8]}).")
     else:
         print(f"  Warning: reset failed ({result.stderr.strip()}).")
 
