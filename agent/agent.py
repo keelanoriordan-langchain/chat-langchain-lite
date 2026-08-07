@@ -11,7 +11,7 @@ from deepagents.backends.context_hub import ContextHubBackend
 from agent.tools import TOOLS
 from context import CONTEXT_HUB_REPO, get_prompt
 from utils.streaming import iter_text
-from utils.models import model
+from utils.models import MODEL_CONFIG, model
 
 # AGENTS.md is the agent's system prompt — pulled fresh from LangSmith
 # Context Hub at module import.
@@ -20,14 +20,24 @@ from utils.models import model
 # PR to that seed AND to the live Context Hub.
 SYSTEM_PROMPT = get_prompt()
 
-# Override with CHAT_LANGCHAIN_LITE_MODEL env var — used by setup.py to seed
-# baseline experiments against a more expensive model (Sonnet) for the
-# demo's cost/latency comparison.
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
-
 
 def _model_id() -> str:
-    return os.getenv("CHAT_LANGCHAIN_LITE_MODEL") or _DEFAULT_MODEL
+    """Id of the chat model that actually runs (CHAT_LANGCHAIN_LITE_MODEL selects it)."""
+    return MODEL_CONFIG["model"]
+
+
+def _base_metadata() -> dict:
+    metadata = {
+        "demo": "true",
+        "demo_type": "chat-lc-lite",
+        "model": _model_id(),
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "max_tokens": MODEL_CONFIG["max_tokens"],
+    }
+    user_id = os.getenv("CHAT_LANGCHAIN_LITE_USER_ID")
+    if user_id:
+        metadata["user_id"] = user_id
+    return metadata
 
 
 # The Context Hub-backed filesystem holds the agent's OWN context (AGENTS.md,
@@ -42,7 +52,7 @@ def _readonly_context_hub_fs() -> FilesystemMiddleware:
 
 
 def build_agent():
-    return create_agent(
+    agent = create_agent(
         # temperature=0 for deterministic, reproducible demo behavior — the
         # intentional bugs (tone, scope, truncation) come from the prompt and
         # max_tokens, not sampling, so pinning temperature keeps traces consistent.
@@ -51,10 +61,13 @@ def build_agent():
         system_prompt=SYSTEM_PROMPT,
         middleware=[_readonly_context_hub_fs()],
     )
+    # LangGraph Studio / the LangGraph API invoke this graph directly and never
+    # go through _config(), so bind the trace metadata at the graph level too.
+    return agent.with_config(metadata=_base_metadata())
 
 
 def _config(thread_id: str | None = None) -> RunnableConfig:
-    metadata = {"demo": "true", "demo_type": "chat-lc-lite", "model": _model_id()}
+    metadata = _base_metadata()
     if thread_id:
         metadata["thread_id"] = thread_id
     return RunnableConfig(
