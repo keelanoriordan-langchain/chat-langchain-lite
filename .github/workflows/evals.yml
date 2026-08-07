@@ -15,8 +15,17 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'run-evals')
     runs-on: ubuntu-latest
     env:
+      # ANTHROPIC_API_KEY is a LangSmith gateway key (lsv2_sk_…), not a
+      # native Anthropic key, so the bare `Anthropic()` client in
+      # evals/evaluators.py must be pointed at the gateway. Without
+      # ANTHROPIC_BASE_URL the SDK defaults to api.anthropic.com and every
+      # judge call 401s with `invalid x-api-key`.
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      # Read at import time by utils/models.py via os.environ[...], so a
+      # missing value is a hard KeyError before the agent can run at all.
+      LANGSMITH_API_KEY_GATEWAY: ${{ secrets.LANGSMITH_API_KEY_GATEWAY }}
       LANGSMITH_PROJECT: ${{ secrets.LANGSMITH_PROJECT }}
       LANGSMITH_WORKSPACE_ID: ${{ secrets.LANGSMITH_WORKSPACE_ID }}
       DEMO_PRESENTER: ${{ vars.DEMO_PRESENTER }}
