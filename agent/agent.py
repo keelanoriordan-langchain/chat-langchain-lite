@@ -68,14 +68,33 @@ def _user_msg(question: str) -> dict:
     return {"messages": [{"role": "user", "content": question}]}
 
 
+def _message_text(message) -> str:
+    """Return a message's user-visible text, flattening Anthropic block lists."""
+    content = getattr(message, "content", None)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            block.get("text") or ""
+            for block in content
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
+    return ""
+
+
 def invoke_agent(question: str, thread_id: str | None = None) -> dict:
     """Run the agent once. Returns {output, tools_called, messages}."""
     result = build_agent().invoke(_user_msg(question), _config(thread_id))
     output = next(
-        (m.content for m in reversed(result["messages"])
-         if isinstance(getattr(m, "content", None), str) and m.content),
+        (text for m in reversed(result["messages"]) if (text := _message_text(m))),
         "",
     )
+    if not output:
+        raise ValueError(
+            "Agent produced no text content — the final AI message carried only "
+            "thinking/tool blocks. Check that max_tokens leaves room for a text "
+            "block after any reasoning budget."
+        )
     tools_called = [m.name for m in result["messages"] if isinstance(m, ToolMessage)]
     return {"output": output, "tools_called": tools_called, "messages": result["messages"]}
 
