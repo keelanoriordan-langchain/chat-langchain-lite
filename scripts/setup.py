@@ -317,9 +317,10 @@ def setup_online_evaluators(api_key: str) -> list:
 # seed dataset; the demo beat is the cost/latency comparison between
 # Haiku (cheap, fast) and Sonnet (more expensive, slower) in the
 # Experiments view while the PR's CI is running.
+# Gateway `provider/model` tags — a bare model id returns 400 on the unified route.
 _BASELINE_MODELS = [
-    ("claude-haiku-4-5-20251001", "haiku"),
-    ("claude-sonnet-4-6",         "sonnet"),
+    ("bedrock/anthropic.claude-haiku-4-5",  "haiku"),
+    ("bedrock/anthropic.claude-sonnet-5",   "sonnet"),
 ]
 
 
