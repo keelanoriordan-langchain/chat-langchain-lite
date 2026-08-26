@@ -1,7 +1,6 @@
 import os
 
 from langchain.agents import create_agent
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessageChunk, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -11,7 +10,7 @@ from deepagents.backends.context_hub import ContextHubBackend
 from agent.tools import TOOLS
 from context import CONTEXT_HUB_REPO, get_prompt
 from utils.streaming import iter_text
-from utils.models import model
+from utils.models import MODEL_CONFIG, build_model
 
 # AGENTS.md is the agent's system prompt — pulled fresh from LangSmith
 # Context Hub at module import.
@@ -23,7 +22,9 @@ SYSTEM_PROMPT = get_prompt()
 # Override with CHAT_LANGCHAIN_LITE_MODEL env var — used by setup.py to seed
 # baseline experiments against a more expensive model (Sonnet) for the
 # demo's cost/latency comparison.
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+# Gateway `provider/model` tag. Defaults to the same model the Gateway pane
+# advertises, so an unset CHAT_LANGCHAIN_LITE_MODEL behaves exactly as before.
+_DEFAULT_MODEL = MODEL_CONFIG["model"]
 
 
 def _model_id() -> str:
@@ -43,10 +44,12 @@ def _readonly_context_hub_fs() -> FilesystemMiddleware:
 
 def build_agent():
     return create_agent(
-        # temperature=0 for deterministic, reproducible demo behavior — the
-        # intentional bugs (tone, scope, truncation) come from the prompt and
-        # max_tokens, not sampling, so pinning temperature keeps traces consistent.
-        model=model,
+        # Built per call from _model_id() so CHAT_LANGCHAIN_LITE_MODEL actually
+        # switches the model (setup.py's baseline experiments rely on this), not
+        # just the trace metadata. temperature is omitted — the gateway's Bedrock
+        # route rejects it as deprecated; the intentional demo bugs (tone, scope,
+        # truncation) come from the prompt and max_tokens, not sampling.
+        model=build_model(_model_id()),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         middleware=[_readonly_context_hub_fs()],
