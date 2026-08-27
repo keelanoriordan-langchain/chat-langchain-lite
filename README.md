@@ -160,6 +160,10 @@ LangGraph SDK on loopback — it never imports the graph directly.
 | `python -m scripts.cleanup --full` | Same, plus deletes the LangSmith project (so Engine sees a fresh project on the next demo). Re-run `scripts.setup` after. |
 | `uv run langgraph dev` | Start the graph server with the Chat LangChain Lite UI mounted on it (http://localhost:2024/) |
 
+## Tracing
+
+Every entry point — the chat UI (`web/app.py`), `scripts.generate_traces`, and `scripts.run_evals` — must invoke the agent with `agent.agent.trace_config()`. It is the only place that sets `run_name="chat-lc-lite-demo"`, the `engine-demo` tag, and the `environment` metadata key (`CHAT_LANGCHAIN_LITE_ENV`, default `development`), which is what lets the project's online evaluators and run rules score real agent traffic only. Ad-hoc model calls go through `utils.models.build_model()` inside a named trace (e.g. `utils.models.probe_model`) — never as a bare top-level model invocation.
+
 ## Evaluators
 
 Two LLM-as-judge evaluators run in CI (offline). Claude Haiku scores each 0 or 1:

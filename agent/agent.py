@@ -56,8 +56,14 @@ def build_agent():
     )
 
 
-def _config(thread_id: str | None = None) -> RunnableConfig:
-    metadata = {"demo": "true", "demo_type": "chat-lc-lite", "model": _model_id()}
+def trace_config(thread_id: str | None = None) -> RunnableConfig:
+    """Shared trace config — every entry point must route its invocation through this."""
+    metadata = {
+        "demo": "true",
+        "demo_type": "chat-lc-lite",
+        "model": _model_id(),
+        "environment": os.getenv("CHAT_LANGCHAIN_LITE_ENV", "development"),
+    }
     if thread_id:
         metadata["thread_id"] = thread_id
     return RunnableConfig(
@@ -65,6 +71,9 @@ def _config(thread_id: str | None = None) -> RunnableConfig:
         metadata=metadata,
         tags=["engine-demo", CONTEXT_HUB_REPO],
     )
+
+
+_config = trace_config
 
 
 def _user_msg(question: str) -> dict:

@@ -14,9 +14,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 
 from langchain.chat_models import init_chat_model
-
-# --- Default: OpenAI, direct ---
-# model = init_chat_model("openai:gpt-4.1-mini")
+from langsmith import traceable
 
 # --- Anthropic-on-Bedrock via the LangSmith LLM Gateway ---
 # Routes every model call through the LangSmith Gateway so that workspace
@@ -72,18 +70,7 @@ def build_model(model_name: str | None = None):
     )
 
 
-model = build_model()
-
-# --- Anthropic, direct ---
-# model = init_chat_model("anthropic:claude-sonnet-4-5")
-
-# --- Azure OpenAI ---
-# from langchain_openai import AzureChatOpenAI
-# model = AzureChatOpenAI(azure_deployment="gpt-4.1-mini", streaming=True)
-
-# --- AWS Bedrock, direct ---
-# from langchain_aws import ChatBedrockConverse
-# model = ChatBedrockConverse(
-#     provider="anthropic",
-#     model_id="anthropic.claude-sonnet-4-20250514-v1:0",
-# )
+@traceable(name="chat-lc-lite-probe", run_type="llm")
+def probe_model(prompt: str, model_name: str | None = None):
+    """One-off model call for ad-hoc probes, named so it can't land as a bare root run."""
+    return build_model(model_name).invoke(prompt)

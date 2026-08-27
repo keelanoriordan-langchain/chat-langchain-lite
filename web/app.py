@@ -61,15 +61,9 @@ from langsmith import Client
 from langsmith.schemas import FeedbackConfig
 from starlette.responses import PlainTextResponse, RedirectResponse
 
-from context import CONTEXT_HUB_REPO
-
 load_dotenv(override=True)
 
 ASSISTANT_ID = "chat_langchain_lite"
-
-# The application slug — matches the agent's own run naming (agent/agent.py's
-# `_config`) so the chat UI's traces line up with the scripted path.
-APP_SLUG = "chat-lc-lite"
 
 # Human-feedback keys emitted by this chat UI and consumed by the monitoring /
 # online-eval automation. Keep these names stable so the two can't drift.
@@ -851,10 +845,17 @@ async def send(session, q: str = ""):
     # Create the run ONCE here. The assistant bubble then joins this run's stream
     # over SSE, so EventSource reconnects re-attach instead of starting new runs.
     try:
-        # Name + tag UI traffic consistently with the scripted path (agent._config),
+        # Name + tag UI traffic through the one shared helper (agent.trace_config),
         # so the chat UI's runs aren't named after the bare graph ("chat_langchain_lite").
         # `run_name` is a valid RunnableConfig field the graph honors; the SDK's
         # Config TypedDict just omits it, hence the ignore.
+        # Imported here, not at module scope: the UI is mounted on the graph server
+        # but must not couple its own startup to the graph/model import (see
+        # /gateway). If this import ever fails the request errors out rather than
+        # creating an unnamed, untagged run the online evaluators would score.
+        from agent.agent import trace_config
+
+        cfg = trace_config(thread_id)
         run = await get_client(url=_api_url()).runs.create(  # ty: ignore[no-matching-overload]
             thread_id,
             ASSISTANT_ID,
@@ -862,10 +863,10 @@ async def send(session, q: str = ""):
             stream_mode="messages-tuple",
             stream_resumable=True,
             if_not_exists="create",
-            metadata={"demo": "true", "demo_type": APP_SLUG},
+            metadata=cfg["metadata"],
             config={
-                "run_name": f"{APP_SLUG}-demo",
-                "tags": ["engine-demo", CONTEXT_HUB_REPO],
+                "run_name": cfg["run_name"],
+                "tags": cfg["tags"],
             },
         )
     except Exception:

@@ -18,6 +18,10 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+# Tag eval traffic in trace_config()'s `environment` metadata so run rules and
+# dashboards can separate it from real UI traffic.
+os.environ.setdefault("CHAT_LANGCHAIN_LITE_ENV", "eval")
+
 from evals.dataset import DATASET_NAME, DEMO_PRESENTER
 PROJECT_NAME = os.getenv("LANGSMITH_PROJECT", "chat-lc-lite")
 
@@ -43,6 +47,7 @@ def run_agent_on_example(inputs: dict) -> dict:
 
 def run_evaluation(experiment_prefix: str) -> dict:
     from langsmith import evaluate
+    from agent.agent import trace_config
     from evals.evaluators import assertion_evaluator
 
     print(f"\nRunning evaluation on dataset '{DATASET_NAME}'...")
@@ -52,7 +57,7 @@ def run_evaluation(experiment_prefix: str) -> dict:
         data=DATASET_NAME,
         evaluators=[assertion_evaluator],
         experiment_prefix=experiment_prefix,
-        metadata={"demo": "true", "demo_type": "chat-lc-lite"},
+        metadata=dict(trace_config()["metadata"]),
     )
 
     # One feedback per example: assertion_evaluator returns

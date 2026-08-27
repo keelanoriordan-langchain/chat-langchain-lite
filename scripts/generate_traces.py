@@ -21,6 +21,10 @@ load_dotenv(override=True)
 # model default — the gateway's Bedrock route rejects an explicit temperature.
 os.environ["CHAT_LANGCHAIN_LITE_MODEL"] = "bedrock/anthropic.claude-haiku-4-5"
 
+# Tag this scripted traffic in trace_config()'s `environment` metadata so run
+# rules and dashboards can separate it from real UI traffic in the same project.
+os.environ.setdefault("CHAT_LANGCHAIN_LITE_ENV", "script")
+
 QUERIES = [
     # All queries below are chosen so the BASE content (no tone fluff) is
     # >300 tokens — that way Bug 4 (truncation) is clearly a max_tokens
