@@ -6,7 +6,15 @@ the format Engine emits when proposing generated examples to a dataset,
 so anything Engine adds is scored the same way.
 """
 
+import os
+
 from anthropic import Anthropic
+
+# Judge calls go through the LangSmith Gateway, not direct Anthropic. A bare
+# Anthropic() depended on an ambient ANTHROPIC_API_KEY and raised
+# "Could not resolve authentication method" once that was unset.
+_GATEWAY_BASE_URL = "https://gateway.smith.langchain.com"
+_JUDGE_MODEL = "bedrock/anthropic.claude-haiku-4-5"
 
 _anthropic_client = None
 
@@ -14,7 +22,14 @@ _anthropic_client = None
 def _get_anthropic_client() -> Anthropic:
     global _anthropic_client
     if _anthropic_client is None:
-        _anthropic_client = Anthropic()
+        _anthropic_client = Anthropic(
+            base_url=_GATEWAY_BASE_URL,
+            api_key=(
+                os.environ.get("LANGSMITH_API_KEY_GATEWAY")
+                or os.environ.get("LANGSMITH_GATEWAY_API_KEY")
+                or os.environ.get("LANGSMITH_API_KEY")
+            ),
+        )
     return _anthropic_client
 
 
@@ -52,7 +67,7 @@ def _judge_assertion(criterion: str, output: str, tools_called: list[str]) -> fl
         "Does the response satisfy the assertion? Answer ONLY 'yes' or 'no'."
     )
     response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=_JUDGE_MODEL,
         max_tokens=16,
         system=system_prompt,
         messages=[{"role": "user", "content": user_msg}],

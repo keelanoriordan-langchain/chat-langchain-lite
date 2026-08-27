@@ -15,8 +15,11 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'run-evals')
     runs-on: ubuntu-latest
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      # Gateway credential. utils/models.py and evals/evaluators.py both
+      # authenticate to the LangSmith Gateway with this; no direct-provider
+      # key or base-URL override is used anywhere any more.
+      LANGSMITH_API_KEY_GATEWAY: ${{ secrets.LANGSMITH_API_KEY_GATEWAY }}
       LANGSMITH_PROJECT: ${{ secrets.LANGSMITH_PROJECT }}
       LANGSMITH_WORKSPACE_ID: ${{ secrets.LANGSMITH_WORKSPACE_ID }}
       DEMO_PRESENTER: ${{ vars.DEMO_PRESENTER }}
