@@ -35,16 +35,13 @@ MODEL_CONFIG = {
     "provider": "anthropic",
     "base_url": "https://gateway.smith.langchain.com",
 }
-
-# Gateway auth is a LangSmith key, not an Anthropic one. Prefer the dedicated
-# gateway key, then the name used elsewhere, then the plain workspace key so CI
-# (which exports only LANGSMITH_API_KEY) and schema-only imports don't hard-fail
-# on a missing var the way os.environ[...] did.
-GATEWAY_API_KEY = (
-    os.environ.get("LANGSMITH_API_KEY_GATEWAY")
-    or os.environ.get("LANGSMITH_GATEWAY_API_KEY")
-    or os.environ.get("LANGSMITH_API_KEY")
-    or "missing-langsmith-api-key"
+model = init_chat_model(
+    model=MODEL_CONFIG["model"],
+    model_provider=MODEL_CONFIG["provider"],
+    base_url=MODEL_CONFIG["base_url"],
+    api_key=os.environ["LANGSMITH_API_KEY_GATEWAY"],
+    max_tokens=4096,
+    temperature=0,
 )
 
 
