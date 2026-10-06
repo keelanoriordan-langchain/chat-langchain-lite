@@ -3,7 +3,7 @@ import os
 from langchain.agents import create_agent
 from langchain.agents.middleware import ToolCallLimitMiddleware
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import AIMessageChunk, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
 from deepagents.middleware.filesystem import FilesystemMiddleware
@@ -11,7 +11,7 @@ from deepagents.backends.context_hub import ContextHubBackend
 
 from agent.tools import TOOLS
 from context import CONTEXT_HUB_REPO, get_prompt
-from utils.streaming import iter_text
+from utils.streaming import TRUNCATION_NOTE, iter_text
 from utils.models import MAX_TOOL_CALLS_PER_RUN, MODEL_CONFIG, model
 
 # AGENTS.md is the agent's system prompt — pulled fresh from LangSmith
@@ -45,8 +45,7 @@ def _readonly_context_hub_fs() -> FilesystemMiddleware:
 def build_agent():
     return create_agent(
         # temperature is omitted — GPT-5-class models reject non-default values;
-        # the intentional bugs (tone, scope, truncation) come from the prompt and
-        # max_tokens, not sampling.
+        # the intentional bugs (tone, scope) come from the prompt, not sampling.
         model=model,
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
@@ -82,14 +81,21 @@ def invoke_agent(question: str, thread_id: str | None = None) -> dict:
          if isinstance(getattr(m, "content", None), str) and m.content),
         "",
     )
+    last_ai = next((m for m in reversed(result["messages"]) if isinstance(m, AIMessage)), None)
+    if last_ai and last_ai.response_metadata.get("finish_reason") == "length":
+        output += TRUNCATION_NOTE
     tools_called = [m.name for m in result["messages"] if isinstance(m, ToolMessage)]
     return {"output": output, "tools_called": tools_called, "messages": result["messages"]}
 
 
 def stream_agent(question: str, thread_id: str | None = None):
     """Stream the agent's response text as it's generated."""
+    finish_reason = None
     for chunk, _meta in build_agent().stream(
         _user_msg(question), _config(thread_id), stream_mode="messages"
     ):
         if isinstance(chunk, AIMessageChunk):
             yield from iter_text(chunk)
+            finish_reason = chunk.response_metadata.get("finish_reason") or finish_reason
+    if finish_reason == "length":
+        yield TRUNCATION_NOTE
