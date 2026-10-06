@@ -741,7 +741,11 @@ def _fetch_policies() -> list[dict]:
     # Deployments strip LANGSMITH_API_KEY from the app env (auth handled
     # internally), so use the key the client resolved; fall back to the gateway
     # key that persists there.
-    key = client.api_key or os.environ.get("LANGSMITH_API_KEY_GATEWAY", "")
+    key = (
+        client.api_key
+        or os.environ.get("LANGSMITH_GATEWAY_API_KEY")
+        or os.environ.get("LANGSMITH_API_KEY_GATEWAY", "")
+    )
     resp = httpx.get(
         f"{client.api_url}/v1/platform/gateway-policies",
         headers={"X-Api-Key": key},
