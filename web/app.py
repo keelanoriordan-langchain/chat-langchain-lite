@@ -62,6 +62,7 @@ from langsmith.schemas import FeedbackConfig
 from starlette.responses import PlainTextResponse, RedirectResponse
 
 from context import CONTEXT_HUB_REPO
+from utils.streaming import TRUNCATION_NOTE
 
 load_dotenv(override=True)
 
@@ -887,6 +888,7 @@ async def stream(session, run: str = ""):
 
     async def gen():
         acc = ""
+        finish_reason = None
         if not run_id or not thread_id:
             yield sse_message("⚠️ Invalid run.", event="token")
             yield sse_message(
@@ -909,6 +911,11 @@ async def stream(session, run: str = ""):
                 acc += _msg_text(msg.get("content"))
                 if acc:
                     yield sse_message(acc, event="token")
+                meta = msg.get("response_metadata") or {}
+                finish_reason = meta.get("finish_reason") or finish_reason
+            if finish_reason == "length":
+                acc += TRUNCATION_NOTE
+                yield sse_message(acc, event="token")
         except Exception:
             # Each token frame replaces the bubble, so append to acc rather than
             # emitting the warning alone — otherwise a mid-stream failure would

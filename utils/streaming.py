@@ -13,6 +13,8 @@ from typing import Iterable
 
 from langchain_core.messages import AIMessageChunk
 
+TRUNCATION_NOTE = "\n\n_(answer truncated due to length limit)_"
+
 
 def iter_text(chunk: AIMessageChunk) -> Iterable[str]:
     """Yield the user-visible text fragments from one AIMessageChunk.

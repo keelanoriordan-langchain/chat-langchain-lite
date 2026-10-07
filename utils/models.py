@@ -67,10 +67,12 @@ def build_model(model_name: str | None = None):
         base_url=GATEWAY,
         api_key=GATEWAY_API_KEY,
         # temperature is omitted: GPT-5-class models reject non-default values.
-        max_tokens=300,
+        # Sized for detailed multi-part answers with code; 300 cut them off
+        # mid-sentence or inside open code fences.
+        max_tokens=4096,
         # max_tokens is sent as max_completion_tokens, which also covers
-        # reasoning tokens. At the default effort, long answers spent the whole
-        # 300-token budget reasoning and came back with no text at all, so the
+        # reasoning tokens. At the default effort, long answers could spend the
+        # whole budget reasoning and come back with no text at all, so the
         # chat UI rendered an empty bubble. "none" puts the budget into visible
         # text. (This model rejects "minimal"; "low" still burned ~230 tokens.)
         reasoning_effort="none",
